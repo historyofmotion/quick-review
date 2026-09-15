@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build artifacts & packaged apps
+dist/
+*.app/
+.build/
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Logs
+*.log
+npm-debug.log*
+
+# User local data
+settings.json

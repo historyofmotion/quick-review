@@ -1,0 +1,25 @@
+{
+  "name": "quick-review",
+  "version": "1.0.0",
+  "description": "Native macOS Desktop Review App with persistent Finder storage, image pasting, and keyboard navigation",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node tests/storage.test.js",
+    "package:mac": "electron-packager . \"Quick Review\" --platform=darwin --arch=arm64 --out=dist --overwrite --prune=true",
+    "build:app": "npm run package:mac && cp -R \"dist/Quick Review-darwin-arm64/Quick Review.app\" ./"
+  },
+  "keywords": [
+    "macos",
+    "desktop",
+    "review",
+    "flashcards",
+    "productivity"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^34.3.0"
+  }
+}

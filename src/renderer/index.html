@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quick Review</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="window-container">
+    <!-- Top Window Drag Region / Titlebar -->
+    <header class="window-titlebar">
+      <div class="titlebar-left">
+        <div class="traffic-lights-spacer"></div>
+        <!-- Set Switcher Dropdown in Top Bar -->
+        <div class="set-switcher-wrapper">
+          <select id="select-active-set" class="set-switcher-select" title="Switch Review Set"></select>
+          <div class="set-actions-dropdown">
+            <button id="btn-set-menu" class="btn-icon-titlebar" title="Set Actions (New, Rename, Export, Finder)">⚙️</button>
+            <div id="menu-set-actions" class="dropdown-menu hidden">
+              <button id="menu-action-new-set" class="dropdown-item">➕ New Review Set... (⌘⇧N)</button>
+              <button id="menu-action-rename-set" class="dropdown-item">✏️ Rename Active Set...</button>
+              <button id="menu-action-export-set" class="dropdown-item">📤 Export Active Set... (⌘⇧E)</button>
+              <button id="menu-action-reveal-finder" class="dropdown-item">📁 Reveal Set in Finder</button>
+              <div class="dropdown-divider"></div>
+              <button id="menu-action-delete-set" class="dropdown-item text-danger">🗑️ Delete Active Set...</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="titlebar-center">
+        <!-- Quick Search in Header -->
+        <div class="header-search-bar">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="input-search" placeholder="Search active set (⌘F)..." autocomplete="off" />
+          <button id="btn-clear-search" class="btn-clear hidden">✕</button>
+        </div>
+      </div>
+
+      <div class="titlebar-actions">
+        <button id="btn-start-full-review" class="btn btn-secondary btn-sm" title="Full Review Mode (⌘Return)">
+          <span class="icon">⤢</span> Full Review
+        </button>
+        <button id="btn-global-quick-add" class="btn btn-primary btn-sm" title="Quick Add Record (⌘N)">
+          <span class="icon">+</span> New Record
+        </button>
+      </div>
+    </header>
+
+    <!-- 2-Column macOS Layout (Data Dense List + Direct Inline Editor) -->
+    <div class="app-layout">
+      <!-- 1. Records List Pane (Data Dense: Title Only) -->
+      <section class="records-pane" tabindex="0" id="records-pane-container">
+        <div class="records-header">
+          <div class="controls-row">
+            <div class="sort-control">
+              <label for="select-sort">Sort:</label>
+              <select id="select-sort" class="select-mac">
+                <option value="entryOrder">Entry Order</option>
+                <option value="dateCreatedDesc">Newest First</option>
+                <option value="dateCreatedAsc">Oldest First</option>
+                <option value="dateModifiedDesc">Recently Modified</option>
+                <option value="titleAsc">Title (A-Z)</option>
+                <option value="titleDesc">Title (Z-A)</option>
+              </select>
+            </div>
+            <span id="records-count-badge" class="records-count-badge">0 items</span>
+          </div>
+
+          <!-- Tag Chips Filter Bar -->
+          <div id="tag-filter-bar" class="tag-filter-bar hidden"></div>
+        </div>
+
+        <div class="records-list-container">
+          <div id="records-empty" class="empty-state hidden">
+            <div class="empty-icon">📝</div>
+            <p class="empty-title">No records</p>
+            <p class="empty-subtitle">Press ⌘N to quickly add a record</p>
+            <button id="btn-empty-add" class="btn btn-primary btn-sm">+ New Record (⌘N)</button>
+          </div>
+          <ul id="records-list" class="records-list"></ul>
+        </div>
+
+        <div class="records-pane-footer">
+          <span class="keyboard-hints">Navigate: <strong>↑ / ↓</strong> · Zoom: <strong>Space/Z</strong> · Edit: <strong>Enter</strong></span>
+        </div>
+      </section>
+
+      <!-- 2. Record Direct Inline Detail / Editor Pane -->
+      <main class="detail-pane">
+        <div id="detail-empty" class="empty-state">
+          <div class="empty-icon">📂</div>
+          <p class="empty-title">No record selected</p>
+          <p class="empty-subtitle">Select a record from the list or press <strong>⌘N</strong> to add a new record.</p>
+        </div>
+
+        <div id="detail-content" class="detail-content hidden">
+          <!-- 1. Title Input & Subtle Short ID -->
+          <div class="detail-section">
+            <div class="detail-title-row">
+              <input type="text" id="detail-input-title" class="detail-title-input" placeholder="Record Title..." autocomplete="off" />
+              <span id="detail-short-id" class="subtle-id-badge" title="Click to copy ID">#----</span>
+            </div>
+          </div>
+
+          <!-- 2. Description & Notes (Swapped: Now above Image) -->
+          <div class="detail-section">
+            <span class="section-label">DESCRIPTION & NOTES</span>
+            <textarea id="detail-textarea-desc" class="detail-description-textarea" rows="7" placeholder="Add notes, details, code snippets, or description here..."></textarea>
+          </div>
+
+          <!-- 3. Image Section (Small compact box if no image) -->
+          <div class="detail-section">
+            <div class="section-header-row">
+              <span class="section-label">ATTACHED IMAGE</span>
+              <div class="section-actions-row">
+                <button type="button" id="btn-detail-paste-image" class="btn btn-secondary btn-xs" title="Paste Image from Clipboard (⌘V)">
+                  📋 Paste (⌘V)
+                </button>
+                <button type="button" id="btn-detail-browse-image" class="btn btn-secondary btn-xs">
+                  Browse...
+                </button>
+                <button type="button" id="btn-detail-remove-image" class="btn btn-danger-xs hidden">
+                  Remove
+                </button>
+              </div>
+            </div>
+
+            <div id="detail-image-dropzone" class="detail-image-dropzone">
+              <div id="detail-image-empty" class="dropzone-compact-box">
+                <span class="dropzone-mini-icon">🖼️</span>
+                <span>Drop image here or press <strong>⌘V</strong> to paste</span>
+              </div>
+              <div id="detail-image-wrapper" class="detail-image-wrapper hidden">
+                <img id="detail-image-preview" alt="Record attachment" />
+                <div class="image-overlay-hint" title="Press Space or Z to zoom">🔍 Click or Space to Enlarge</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Tags Section (Lower) -->
+          <div class="detail-section">
+            <span class="section-label">TAGS</span>
+            <div class="tags-input-container">
+              <div id="detail-tags-chips" class="tags-chips-list"></div>
+              <input type="text" id="detail-input-tag" placeholder="Type tag and press Enter or comma..." autocomplete="off" />
+            </div>
+          </div>
+
+          <!-- 5. Metadata Footer (Timestamps & Delete at the bottom) -->
+          <div class="detail-footer-metadata">
+            <div class="metadata-timestamps">
+              <div class="timestamp-item">
+                <span class="ts-label">Created:</span>
+                <span id="detail-created-at" class="ts-value"></span>
+              </div>
+              <div class="timestamp-item">
+                <span class="ts-label">Modified:</span>
+                <span id="detail-modified-at" class="ts-value"></span>
+              </div>
+            </div>
+            <button id="btn-delete-record" class="btn btn-danger-icon" title="Delete Record (⌘Delete)">
+              🗑️ Delete Record
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Modals & Full Review Screens -->
+
+    <!-- Quick Add Record Modal Sheet -->
+    <div id="modal-record" class="modal-backdrop hidden">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-header">
+          <h2 id="modal-record-title">Quick Add Record</h2>
+          <button class="btn-close" id="btn-close-record-modal">✕</button>
+        </div>
+
+        <form id="form-record" class="modal-body">
+          <div class="form-group">
+            <label for="record-input-title">Title <span class="required">*</span></label>
+            <input type="text" id="record-input-title" class="input-text" placeholder="Enter record title..." required autocomplete="off" />
+          </div>
+
+          <!-- Description Field (Swapped above image) -->
+          <div class="form-group">
+            <label for="record-input-desc">Description & Notes</label>
+            <textarea id="record-input-desc" class="input-textarea" rows="4" placeholder="Enter description or notes here..."></textarea>
+          </div>
+
+          <!-- Image Dropzone (Compact if empty) -->
+          <div class="form-group">
+            <label>Image Attachment (Optional)</label>
+            <div id="dropzone" class="image-dropzone">
+              <div id="dropzone-empty" class="dropzone-compact-box">
+                <span class="dropzone-mini-icon">🖼️</span>
+                <span class="dropzone-text">Drop image here or paste from clipboard (⌘V)</span>
+                <button type="button" id="btn-paste-image" class="btn btn-secondary btn-xs">📋 Paste (⌘V)</button>
+                <button type="button" id="btn-browse-image" class="btn btn-secondary btn-xs">Browse...</button>
+              </div>
+              <div id="dropzone-preview" class="dropzone-preview hidden">
+                <img id="dropzone-img" alt="Preview" />
+                <div class="preview-actions">
+                  <button type="button" id="btn-remove-image" class="btn btn-danger-sm">Remove</button>
+                  <button type="button" id="btn-change-image" class="btn btn-secondary-sm">Change</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tags Field -->
+          <div class="form-group">
+            <label for="record-input-tag">Tags</label>
+            <div class="tags-input-container">
+              <div id="record-tags-chips" class="tags-chips-list"></div>
+              <input type="text" id="record-input-tag" placeholder="Type tag and press Enter or comma..." autocomplete="off" />
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" id="btn-cancel-record" class="btn btn-secondary">
+              Cancel <kbd class="kbd-hint">Esc</kbd>
+            </button>
+            <div class="footer-primary-actions">
+              <button type="button" id="btn-save-and-add-next" class="btn btn-secondary" title="Save and immediately add another">
+                Save & Add Next <kbd class="kbd-hint">⇧Enter</kbd>
+              </button>
+              <button type="submit" id="btn-save-record" class="btn btn-primary">
+                Save & Close <kbd class="kbd-hint">⌘Enter</kbd>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- New Review Set Modal -->
+    <div id="modal-new-set" class="modal-backdrop hidden">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-header">
+          <h2>New Review Set</h2>
+          <button class="btn-close" id="btn-close-new-set-modal">✕</button>
+        </div>
+        <form id="form-new-set" class="modal-body">
+          <div class="form-group">
+            <label for="input-new-set-name">Set Name <span class="required">*</span></label>
+            <input type="text" id="input-new-set-name" class="input-text" placeholder="e.g. System Design, Vocabulary" required autocomplete="off" />
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="btn-cancel-new-set" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Set</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Rename Set Modal -->
+    <div id="modal-rename-set" class="modal-backdrop hidden">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-header">
+          <h2>Rename Review Set</h2>
+          <button class="btn-close" id="btn-close-rename-set-modal">✕</button>
+        </div>
+        <form id="form-rename-set" class="modal-body">
+          <div class="form-group">
+            <label for="input-rename-set-name">New Name <span class="required">*</span></label>
+            <input type="text" id="input-rename-set-name" class="input-text" required autocomplete="off" />
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="btn-cancel-rename-set" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">Rename</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Full Review Screen Overlay (with Top Arrows, Live Inline Editing, Photo Adding & Delete) -->
+    <div id="full-review-screen" class="full-review-overlay hidden">
+      <!-- Top Navigation Bar with Arrows & Controls -->
+      <div class="review-nav-top">
+        <div class="review-top-left">
+          <button id="btn-exit-review" class="btn btn-secondary btn-sm" title="Exit Review (Esc)">
+            ✕ Exit (Esc)
+          </button>
+        </div>
+
+        <!-- Top Navigation Arrows & Record Counter -->
+        <div class="review-top-center-nav">
+          <button id="btn-top-prev" class="btn btn-secondary btn-sm" title="Previous Record (← or K)">
+            ← Previous
+          </button>
+          <div class="review-progress-indicator">
+            <span id="review-set-name" class="review-set-badge"></span>
+            <span id="review-counter" class="review-counter-text">Record 1 of 10</span>
+          </div>
+          <button id="btn-top-next" class="btn btn-primary btn-sm" title="Next Record (→ or Space or J)">
+            Next →
+          </button>
+        </div>
+
+        <!-- Top Right Actions (Zoom & Delete) -->
+        <div class="review-top-actions">
+          <button id="btn-review-zoom" class="btn btn-secondary btn-sm hidden" title="Zoom Image (Z or Space)">
+            🔍 Zoom Pic (Z)
+          </button>
+          <button id="btn-review-delete" class="btn btn-danger-icon" title="Delete this record (with confirmation)">
+            🗑️ Delete
+          </button>
+        </div>
+      </div>
+
+      <!-- Top Progress Bar -->
+      <div class="review-progress-bar-container">
+        <div id="review-progress-bar" class="review-progress-bar-fill"></div>
+      </div>
+
+      <!-- Expansive Live Editable Card View -->
+      <div class="review-card-container">
+        <div class="review-card">
+          <!-- 1. Live Editable Title & Subtle Short ID in Full Review -->
+          <div class="review-card-header">
+            <div class="review-title-row">
+              <input type="text" id="review-input-title" class="review-title-input" placeholder="Record Title..." autocomplete="off" />
+              <span id="review-short-id" class="subtle-id-badge" title="Click to copy ID">#----</span>
+            </div>
+          </div>
+
+          <!-- 2. Live Editable Description (Swapped above Image) -->
+          <div class="review-description-box">
+            <div class="section-label">DESCRIPTION & NOTES</div>
+            <textarea id="review-textarea-desc" class="review-description-textarea" rows="6" placeholder="Add description or notes here..."></textarea>
+          </div>
+
+          <!-- 3. Live Image Area in Full Review (Where Photos Are Added / Pasted / Managed) -->
+          <div class="review-image-box">
+            <div class="section-header-row">
+              <span class="section-label">ATTACHED IMAGE</span>
+              <div class="section-actions-row">
+                <button type="button" id="btn-review-paste-image" class="btn btn-secondary btn-xs" title="Paste Image (⌘V)">
+                  📋 Paste (⌘V)
+                </button>
+                <button type="button" id="btn-review-browse-image" class="btn btn-secondary btn-xs">
+                  Browse...
+                </button>
+                <button type="button" id="btn-review-remove-image" class="btn btn-danger-xs hidden">
+                  Remove
+                </button>
+              </div>
+            </div>
+
+            <div id="review-image-dropzone" class="review-image-dropzone">
+              <div id="review-image-empty" class="dropzone-compact-box">
+                <span class="dropzone-mini-icon">🖼️</span>
+                <span>No image attached. Drop image here or press <strong>⌘V</strong> to paste.</span>
+              </div>
+              <div id="review-image-wrapper" class="review-image-wrapper hidden">
+                <img id="review-image" alt="Review Image" />
+                <div class="image-overlay-hint">🔍 Click or press Z to enlarge</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Tags in Full Review (Lower) -->
+          <div class="review-tags-box">
+            <span class="section-label">TAGS</span>
+            <div class="tags-input-container">
+              <div id="review-tags-chips" class="tags-chips-list"></div>
+              <input type="text" id="review-input-tag" placeholder="Type tag and press Enter..." autocomplete="off" />
+            </div>
+          </div>
+
+          <!-- 5. Timestamps at Bottom of Full Review -->
+          <div class="review-footer-metadata">
+            <span id="review-created-at"></span>
+            <span id="review-modified-at"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Hint Bar -->
+      <div class="review-nav-bottom">
+        <div class="review-keyboard-hint">
+          Keyboard: <strong>← / →</strong> or <strong>Space</strong> navigate · <strong>Z</strong> zoom · <strong>⌘V</strong> paste image · <strong>Esc</strong> exit
+        </div>
+      </div>
+    </div>
+
+    <!-- Image Zoom Lightbox Modal -->
+    <div id="modal-image-zoom" class="modal-backdrop hidden">
+      <div class="lightbox-dialog">
+        <button id="btn-close-zoom" class="btn-close-lightbox" title="Close (Esc or Space)">✕</button>
+        <img id="zoomed-image" alt="Zoomed view" />
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
