@@ -214,6 +214,26 @@ class App {
     switch (this.sortOption) {
       case 'entryOrder':
         return records.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      case 'tag':
+        return records.sort((a, b) => {
+          const tagA = (a.tags && a.tags.length > 0) ? a.tags[0].trim().toLowerCase() : null;
+          const tagB = (b.tags && b.tags.length > 0) ? b.tags[0].trim().toLowerCase() : null;
+
+          // Records with tags come before untagged records
+          if (tagA !== null && tagB === null) return -1;
+          if (tagA === null && tagB !== null) return 1;
+
+          // If both have tags, compare alphabetically
+          if (tagA !== null && tagB !== null) {
+            const cmp = tagA.localeCompare(tagB);
+            if (cmp !== 0) return cmp;
+          }
+
+          // Secondary sort: by shortId (or id)
+          const idA = (a.shortId || a.id || '').toLowerCase();
+          const idB = (b.shortId || b.id || '').toLowerCase();
+          return idA.localeCompare(idB);
+        });
       case 'dateCreatedDesc':
         return records.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       case 'dateCreatedAsc':

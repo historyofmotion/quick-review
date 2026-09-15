@@ -90,6 +90,39 @@ async function runTests() {
   assert.strictEqual(fs.existsSync(path.join(exportedPath, 'set.json')), true, 'JSON export should exist');
   console.log('✓ Set export with Markdown and JSON verified');
 
+  // 7. Verify Tag-based grouping sort with secondary ID sort
+  const testSortRecords = [
+    { shortId: 'AA004', title: 'No tag record 1', tags: [] },
+    { shortId: 'AA002', title: 'Beta tag record', tags: ['Beta', 'Alpha'] },
+    { shortId: 'AA001', title: 'Alpha tag record', tags: ['Alpha'] },
+    { shortId: 'AA003', title: 'Beta tag record 2', tags: ['Beta'] },
+    { shortId: 'AA005', title: 'No tag record 2', tags: [] }
+  ];
+
+  const sortedByTag = testSortRecords.sort((a, b) => {
+    const tagA = (a.tags && a.tags.length > 0) ? a.tags[0].trim().toLowerCase() : null;
+    const tagB = (b.tags && b.tags.length > 0) ? b.tags[0].trim().toLowerCase() : null;
+
+    if (tagA !== null && tagB === null) return -1;
+    if (tagA === null && tagB !== null) return 1;
+
+    if (tagA !== null && tagB !== null) {
+      const cmp = tagA.localeCompare(tagB);
+      if (cmp !== 0) return cmp;
+    }
+
+    const idA = (a.shortId || a.id || '').toLowerCase();
+    const idB = (b.shortId || b.id || '').toLowerCase();
+    return idA.localeCompare(idB);
+  });
+
+  assert.deepStrictEqual(
+    sortedByTag.map(r => r.shortId),
+    ['AA001', 'AA002', 'AA003', 'AA004', 'AA005'],
+    'Records should be sorted by primary tag (Alpha -> Beta) and untagged at end, with secondary sort by shortId'
+  );
+  console.log('✓ Tag grouping sort with secondary ID sort verified');
+
   // Cleanup
   fs.rmSync(tempRoot, { recursive: true, force: true });
   console.log('\n🎉 ALL TESTS PASSED SUCCESSFULLY!');

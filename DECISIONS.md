@@ -114,3 +114,8 @@ This document tracks all project requirements, architectural decisions, design c
     11. **Application Icon**:
        - Custom microscope macOS icon generated and embedded into `assets/icon.icns` and `assets/icon.png`.
        - Packaged into `Quick Review.app` bundle and macOS dock.
+    12. **Tag-Based Grouping Sort**:
+       - Added "Tag" option in the Sort dropdown.
+       - Records are sorted alphabetically by their **first assigned tag**.
+       - Untagged records are placed at the end (as if tagged "untagged").
+       - Secondary sort by **Short ID** (`AA001`, `AA002`...) ensures consistent, stable ordering.
