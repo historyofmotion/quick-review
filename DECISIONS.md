@@ -103,3 +103,10 @@ This document tracks all project requirements, architectural decisions, design c
        - Delete record with confirmation in Full Review.
        - Zoom image (`Z` / Click).
        - Small compact box when no image is present.
+    9. **Short Unique IDs**:
+       - 5-character alphanumeric ID (e.g., `#A7K9`, `#STRT1`) assigned to every record.
+       - Displayed subtly in the dense list, detail header, and full review header.
+       - Click-to-copy functionality on any ID badge.
+       - Searchable by `#ID` or ID string.
+    10. **GitHub Repository**:
+       - Repository configured and committed locally for `https://github.com/historyofmotion/quick-review`.
