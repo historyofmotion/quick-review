@@ -320,7 +320,32 @@ class App {
     });
   }
 
-  // Data Dense List: Title Only with Image Icon
+  getSortPrefix(record) {
+    switch (this.sortOption) {
+      case 'tag': {
+        if (record.tags && record.tags.length > 0) {
+          return `[${record.tags[0]}]`;
+        }
+        return '[—]';
+      }
+      case 'dateCreatedDesc':
+      case 'dateCreatedAsc': {
+        const d = new Date(record.createdAt);
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      }
+      case 'dateModifiedDesc': {
+        const d = new Date(record.modifiedAt);
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      }
+      case 'entryOrder':
+      case 'titleAsc':
+      case 'titleDesc':
+      default:
+        return record.shortId ? `#${record.shortId}` : '';
+    }
+  }
+
+  // Data Dense List: Title Only with Dynamic Sort Prefix and Image Icon
   renderRecordsList() {
     const records = this.getFilteredRecords();
     this.recordsList.innerHTML = '';
@@ -344,11 +369,12 @@ class App {
         li.dataset.recordId = record.id;
         li.dataset.index = index;
 
-        const idHtml = record.shortId ? `<span class="record-short-id">#${record.shortId}</span>` : '';
+        const prefixText = this.getSortPrefix(record);
+        const prefixHtml = prefixText ? `<span class="record-prefix-badge">${this.escapeHtml(prefixText)}</span>` : '';
         const hasImageHtml = record.imageFileName ? `<span class="record-has-img" title="Has image attachment">🖼️</span>` : '';
 
         li.innerHTML = `
-          ${idHtml}
+          ${prefixHtml}
           <span class="record-item-title">${this.escapeHtml(record.title || 'Untitled Record')}</span>
           ${hasImageHtml}
         `;

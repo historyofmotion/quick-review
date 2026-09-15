@@ -119,3 +119,9 @@ This document tracks all project requirements, architectural decisions, design c
        - Records are sorted alphabetically by their **first assigned tag**.
        - Untagged records are placed at the end (as if tagged "untagged").
        - Secondary sort by **Short ID** (`AA001`, `AA002`...) ensures consistent, stable ordering.
+    13. **Dynamic Sort Context Badge in List**:
+       - The subtle badge on the left of each record row adapts dynamically to the active sort order:
+         - **Entry Order / Title**: Displays `#AA001`, `#AA002`...
+         - **Tag**: Displays `[Tag]` (or `[—]` for untagged).
+         - **Date Created**: Displays creation date (e.g. `Sep 14`).
+         - **Date Modified**: Displays modified date (e.g. `Sep 15`).
