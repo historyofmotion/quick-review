@@ -20,36 +20,46 @@ async function runTests() {
   assert.strictEqual(initialSets[0].name, 'Getting Started');
   console.log('✓ Initial default set verification passed');
 
-  // 3. Verify Set Creation and Persistence
-  const newSet = {
+  // 3. Verify Set Creation and Day-Based AA999 IDs
+  const day1 = new Date('2026-09-14T10:00:00Z');
+  const day2 = new Date('2026-09-15T10:00:00Z');
+
+  const id1 = storage.generateDayBasedId(day1, []);
+  assert.strictEqual(id1, 'AA001', 'First record on Day 1 should be AA001');
+
+  const setWithId1 = {
     id: 'test-set-1',
     name: 'Vocabulary 101',
     folderName: 'Vocabulary 101',
-    createdAt: new Date().toISOString(),
-    modifiedAt: new Date().toISOString(),
+    createdAt: day1.toISOString(),
+    modifiedAt: day1.toISOString(),
     records: [
       {
         id: 'rec-101',
-        shortId: 'VOC01',
+        shortId: id1,
         title: 'Ephemeral',
         description: 'Lasting for a very short time.',
         tags: ['Adjective', 'Gre'],
         imageFileName: null,
-        createdAt: new Date().toISOString(),
-        modifiedAt: new Date().toISOString(),
+        createdAt: day1.toISOString(),
+        modifiedAt: day1.toISOString(),
         sortOrder: 0
       }
     ]
   };
 
-  storage.saveSet(newSet);
+  const id2 = storage.generateDayBasedId(day1, [setWithId1]);
+  assert.strictEqual(id2, 'AA002', 'Second record on Day 1 should be AA002');
+
+  const idDay2 = storage.generateDayBasedId(day2, [setWithId1]);
+  assert.strictEqual(idDay2, 'AB001', 'First record on Day 2 should be AB001');
+
+  storage.saveSet(setWithId1);
   const loadedSets = storage.loadAllSets();
   const foundSet = loadedSets.find(s => s.id === 'test-set-1');
   assert.ok(foundSet, 'Created set must be found');
-  assert.strictEqual(foundSet.records.length, 1);
-  assert.strictEqual(foundSet.records[0].title, 'Ephemeral');
-  assert.strictEqual(foundSet.records[0].shortId, 'VOC01');
-  console.log('✓ Set, Record, and Short ID persistence verified');
+  assert.strictEqual(foundSet.records[0].shortId, 'AA001');
+  console.log('✓ AA999 day-based sequential ID generation verified (AA001, AA002, AB001)');
 
   // 4. Verify Image Saving & Deletion
   const dummyImageBuffer = Buffer.from('FakeImageDataContent');
@@ -64,7 +74,7 @@ async function runTests() {
   console.log('✓ Image storage, path resolution, and deletion verified');
 
   // 5. Verify Set Renaming
-  const renamed = storage.renameSet(newSet, 'Advanced Vocabulary');
+  const renamed = storage.renameSet(setWithId1, 'Advanced Vocabulary');
   assert.strictEqual(renamed.name, 'Advanced Vocabulary');
   assert.strictEqual(renamed.folderName, 'Advanced Vocabulary');
   assert.strictEqual(fs.existsSync(storage.getSetDirectory('Advanced Vocabulary')), true);

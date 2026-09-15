@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   saveSet: (setData) => ipcRenderer.invoke('storage:saveSet', setData),
   deleteSet: (setData) => ipcRenderer.invoke('storage:deleteSet', setData),
   renameSet: (setData, newName) => ipcRenderer.invoke('storage:renameSet', setData, newName),
+  generateShortId: (dateInput) => ipcRenderer.invoke('storage:generateShortId', dateInput),
 
   // Images
   saveImage: (folderName, bufferArray, extension) => ipcRenderer.invoke('storage:saveImage', folderName, bufferArray, extension),

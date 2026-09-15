@@ -103,11 +103,12 @@ This document tracks all project requirements, architectural decisions, design c
        - Delete record with confirmation in Full Review.
        - Zoom image (`Z` / Click).
        - Small compact box when no image is present.
-    9. **Short Unique IDs**:
-       - 5-character alphanumeric ID (e.g., `#A7K9`, `#STRT1`) assigned to every record.
-       - Displayed subtly in the dense list, detail header, and full review header.
-       - Click-to-copy functionality on any ID badge.
-       - Searchable by `#ID` or ID string.
+    9. **Day-Based Short Unique IDs (`AA999`)**:
+       - IDs follow the format **`AA999`** (2 letters + 3 zero-padded digits, e.g. `AA001`, `AA002`, `AB001`).
+       - The 2 letters (`AA`, `AB`, `AC`, ...) are unique to each calendar day and assigned sequentially starting from the first created date.
+       - The 3 digits (`001`, `002`, ...) autoincrement with leading zeros for each record created on that day.
+       - Displayed subtly in the dense list, detail header, and full review header with click-to-copy.
+       - Full search filtering support by `#AA001` or `AA001`.
     10. **GitHub Repository**:
        - Repository configured and pushed to `https://github.com/historyofmotion/quick-review`.
     11. **Application Icon**:

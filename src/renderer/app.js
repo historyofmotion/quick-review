@@ -709,9 +709,10 @@ class App {
     }
 
     const maxSort = active.records.reduce((max, r) => Math.max(max, r.sortOrder ?? 0), -1);
+    const shortId = await window.api.generateShortId(now);
     const newRecord = {
       id: `rec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      shortId: this.generateShortId(),
+      shortId: shortId,
       title: title,
       description: this.recordInputDesc.value,
       tags: [...this.modalTags],

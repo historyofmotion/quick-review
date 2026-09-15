@@ -37,18 +37,65 @@ class StorageService {
     return path.join(this.getSetDirectory(folderName), 'images');
   }
 
-  generateShortId() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let result = '';
-    for (let i = 0; i < 5; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+  getLocalDateKey(dateInput) {
+    const d = new Date(dateInput || Date.now());
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  indexToLetterCode(idx) {
+    const first = String.fromCharCode(65 + Math.floor(idx / 26) % 26);
+    const second = String.fromCharCode(65 + (idx % 26));
+    return `${first}${second}`;
+  }
+
+  getDayLetterCode(dateKey, settings) {
+    settings.dateMap = settings.dateMap || {};
+    if (settings.dateMap[dateKey]) {
+      return settings.dateMap[dateKey];
     }
-    return result;
+    const existingCount = Object.keys(settings.dateMap).length;
+    const newCode = this.indexToLetterCode(existingCount);
+    settings.dateMap[dateKey] = newCode;
+    this.saveSettings(settings);
+    return newCode;
+  }
+
+  generateDayBasedId(dateInput = new Date(), allSets = []) {
+    const settings = this.loadSettings();
+    const dateKey = this.getLocalDateKey(dateInput);
+    const dayCode = this.getDayLetterCode(dateKey, settings);
+
+    let maxSeq = 0;
+    const regex = new RegExp(`^${dayCode}(\\d{3})$`);
+
+    for (const set of allSets) {
+      if (Array.isArray(set.records)) {
+        for (const record of set.records) {
+          if (record.shortId) {
+            const match = record.shortId.match(regex);
+            if (match) {
+              const seqNum = parseInt(match[1], 10);
+              if (seqNum > maxSeq) {
+                maxSeq = seqNum;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const nextSeq = maxSeq + 1;
+    const formattedSeq = String(nextSeq).padStart(3, '0');
+    return `${dayCode}${formattedSeq}`;
   }
 
   loadAllSets() {
     this.ensureDirectoryStructure();
     const sets = [];
+    const settings = this.loadSettings();
 
     try {
       const entries = fs.readdirSync(this.setsDir, { withFileTypes: true });
@@ -61,21 +108,6 @@ class StorageService {
               const content = fs.readFileSync(setJsonPath, 'utf8');
               const setData = JSON.parse(content);
               setData.folderName = entry.name;
-              
-              // Ensure all records have a shortId
-              let updated = false;
-              if (Array.isArray(setData.records)) {
-                setData.records.forEach(record => {
-                  if (!record.shortId) {
-                    record.shortId = this.generateShortId();
-                    updated = true;
-                  }
-                });
-              }
-              if (updated) {
-                this.saveSet(setData);
-              }
-
               sets.push(setData);
             } catch (err) {
               console.error(`Error reading set at ${setJsonPath}:`, err);
@@ -91,6 +123,33 @@ class StorageService {
       const defaultSet = this.createDefaultSet();
       this.saveSet(defaultSet);
       sets.push(defaultSet);
+    }
+
+    // Ensure all records have standard AA999 shortId
+    const idPattern = /^[A-Z]{2}\d{3}$/;
+    let anyUpdated = false;
+
+    // Collect all records across all sets sorted by createdAt
+    const allRecordsWithSet = [];
+    sets.forEach(set => {
+      if (Array.isArray(set.records)) {
+        set.records.forEach(rec => {
+          allRecordsWithSet.push({ record: rec, set });
+        });
+      }
+    });
+
+    allRecordsWithSet.sort((a, b) => new Date(a.record.createdAt) - new Date(b.record.createdAt));
+
+    allRecordsWithSet.forEach(({ record, set }) => {
+      if (!record.shortId || !idPattern.test(record.shortId)) {
+        record.shortId = this.generateDayBasedId(record.createdAt, sets);
+        anyUpdated = true;
+      }
+    });
+
+    if (anyUpdated) {
+      sets.forEach(set => this.saveSet(set));
     }
 
     // Sort sets by creation date
@@ -313,7 +372,7 @@ class StorageService {
       records: [
         {
           id: 'rec-1',
-          shortId: 'STRT1',
+          shortId: 'AA001',
           title: 'Welcome to Quick Review',
           description: 'Quick Review is your fast, distraction-free desktop app for creating, organizing, and reviewing sets of records.\n\n• Use ⌘N to quickly add new records\n• Paste images directly from your clipboard with ⌘V\n• Press ⌘Return or click "Full Review" to enter focus review mode\n• Navigate seamlessly using Left/Right arrow keys or J/K\n• Everything is automatically saved to ~/Documents/Quick Review/',
           tags: ['Tutorial', 'Getting Started'],
@@ -324,7 +383,7 @@ class StorageService {
         },
         {
           id: 'rec-2',
-          shortId: 'KBD02',
+          shortId: 'AA002',
           title: 'Keyboard Shortcuts Guide',
           description: 'Speed up your workflow with native macOS keyboard shortcuts:\n\n• ⌘N: Add New Record\n• ⌘⇧N: Create New Review Set\n• ⌘F: Search & Filter current set\n• ⌘Return: Enter Full Review Mode\n• Left/Right Arrows or J/K: Navigate records in full review\n• Esc: Exit full review mode\n• ⌘E: Edit selected record\n• ⌘Delete: Delete selected record\n• ⌘⇧E: Export active review set',
           tags: ['Shortcuts', 'Tips'],
@@ -335,7 +394,7 @@ class StorageService {
         },
         {
           id: 'rec-3',
-          shortId: 'FND03',
+          shortId: 'AA003',
           title: 'Finder-Accessible & Auto-Saved',
           description: 'All your data is stored in human-readable JSON files and standard image files in:\n~/Documents/Quick Review/Sets/\n\nYou can inspect, copy, or back up your sets directly through Finder anytime!',
           tags: ['Storage', 'Finder'],

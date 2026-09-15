@@ -185,6 +185,11 @@ ipcMain.handle('storage:getImageDataUrl', (event, folderName, fileName) => {
   return storage.getImageDataUrl(folderName, fileName);
 });
 
+ipcMain.handle('storage:generateShortId', (event, dateInput) => {
+  const allSets = storage.loadAllSets();
+  return storage.generateDayBasedId(dateInput, allSets);
+});
+
 ipcMain.handle('storage:loadSettings', () => {
   return storage.loadSettings();
 });
