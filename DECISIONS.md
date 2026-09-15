@@ -109,4 +109,7 @@ This document tracks all project requirements, architectural decisions, design c
        - Click-to-copy functionality on any ID badge.
        - Searchable by `#ID` or ID string.
     10. **GitHub Repository**:
-       - Repository configured and committed locally for `https://github.com/historyofmotion/quick-review`.
+       - Repository configured and pushed to `https://github.com/historyofmotion/quick-review`.
+    11. **Application Icon**:
+       - Custom microscope macOS icon generated and embedded into `assets/icon.icns` and `assets/icon.png`.
+       - Packaged into `Quick Review.app` bundle and macOS dock.
