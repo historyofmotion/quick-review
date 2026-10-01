@@ -123,6 +123,48 @@ async function runTests() {
   );
   console.log('✓ Tag grouping sort with secondary ID sort verified');
 
+  // 8. Verify Tag Normalization (Lowercase & Deduplication)
+  const rawTags = ['JavaScript', 'javascript', '  REACT  ', 'React', 'HTML5'];
+  const normalized = storage.normalizeTags(rawTags);
+  assert.deepStrictEqual(
+    normalized,
+    ['javascript', 'react', 'html5'],
+    'Tags should be converted to lower case and deduplicated case-insensitively'
+  );
+  console.log('✓ Tag normalization (lowercase and deduplication) verified');
+
+  // 9. Verify loadAllSets normalizes existing mixed-case sets on disk
+  const setWithMixedTags = {
+    id: 'test-set-mixed-tags',
+    name: 'Mixed Tags Set',
+    folderName: 'Mixed_Tags_Set',
+    createdAt: new Date().toISOString(),
+    modifiedAt: new Date().toISOString(),
+    records: [
+      {
+        id: 'rec-mix-1',
+        shortId: 'AA010',
+        title: 'Mixed Tag Item',
+        description: 'Test',
+        tags: ['Urgent', 'URGENT', 'Work', 'personal'],
+        imageFileName: null,
+        createdAt: new Date().toISOString(),
+        modifiedAt: new Date().toISOString(),
+        sortOrder: 0
+      }
+    ]
+  };
+  storage.saveSet(setWithMixedTags);
+  const reloaded = storage.loadAllSets();
+  const foundReloaded = reloaded.find(s => s.id === 'test-set-mixed-tags');
+  assert.ok(foundReloaded, 'Set should be found');
+  assert.deepStrictEqual(
+    foundReloaded.records[0].tags,
+    ['urgent', 'work', 'personal'],
+    'Loaded records must have strictly lowercase, deduplicated tags'
+  );
+  console.log('✓ Automatic disk normalization of mixed-case tags verified');
+
   // Cleanup
   fs.rmSync(tempRoot, { recursive: true, force: true });
   console.log('\n🎉 ALL TESTS PASSED SUCCESSFULLY!');
