@@ -4,6 +4,7 @@
   --bg-pane: #ffffff;
   --bg-detail: #fbfbfd;
   --bg-card: #ffffff;
+  --bg-subtle: #f2f2f7;
   --bg-hover: rgba(0, 0, 0, 0.04);
   --bg-selected: #007aff;
   --text-selected: #ffffff;
@@ -39,6 +40,7 @@
     --bg-pane: #1c1c1e;
     --bg-detail: #161617;
     --bg-card: #2c2c2e;
+    --bg-subtle: #252528;
     --bg-hover: rgba(255, 255, 255, 0.06);
     --bg-selected: #0a84ff;
     --text-selected: #ffffff;
@@ -53,6 +55,7 @@
     
     --accent-primary: #0a84ff;
     --accent-hover: #0071e3;
+    --accent-text: #ffffff;
     
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
@@ -321,6 +324,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  text-transform: lowercase;
 }
 
 .tag-pill:hover {
@@ -339,6 +343,7 @@ body {
   border: 1px solid var(--border-color);
   font-weight: 600;
   color: var(--accent-primary);
+  text-transform: none;
 }
 
 .tag-pill-more:hover {
@@ -512,6 +517,7 @@ body {
 
 .flyout-tag-name {
   font-family: inherit;
+  text-transform: lowercase;
 }
 
 .flyout-tag-count {
@@ -865,6 +871,7 @@ body {
   align-items: center;
   gap: 6px;
   font-weight: 500;
+  text-transform: lowercase;
 }
 
 .tags-autocomplete-count {
@@ -884,6 +891,17 @@ body {
   color: var(--accent-text);
 }
 
+.tag-flyout-list::-webkit-scrollbar,
+.tags-autocomplete-dropdown::-webkit-scrollbar {
+  width: 5px;
+}
+
+.tag-flyout-list::-webkit-scrollbar-thumb,
+.tags-autocomplete-dropdown::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
 .tags-chips-list {
   display: flex;
   gap: 4px;
@@ -899,6 +917,7 @@ body {
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 4px;
+  text-transform: lowercase;
 }
 
 .tag-chip-remove {
