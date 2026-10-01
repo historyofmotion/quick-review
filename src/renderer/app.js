@@ -8,6 +8,7 @@ class App {
     this.searchQuery = '';
     this.selectedTag = null;
     this.sortOption = 'entryOrder';
+    this.lastUsedTags = null;
     
     // Full Review state
     this.isFullReviewOpen = false;
@@ -164,6 +165,10 @@ class App {
       this.selectSort.value = this.sortOption;
     }
 
+    if (settings && Array.isArray(settings.lastUsedTags)) {
+      this.lastUsedTags = settings.lastUsedTags.map(t => String(t).trim().toLowerCase());
+    }
+
     if (settings && settings.lastSelectedSetId && this.sets.some(s => s.id === settings.lastSelectedSetId)) {
       this.activeSetId = settings.lastSelectedSetId;
     } else if (this.sets.length > 0) {
@@ -173,6 +178,15 @@ class App {
     const active = this.getActiveSet();
     if (active && active.records.length > 0) {
       this.selectedRecordId = active.records[0].id;
+    }
+
+    // Default to active set's most recently tagged record if lastUsedTags was not in settings
+    if ((!this.lastUsedTags || this.lastUsedTags.length === 0) && active && Array.isArray(active.records)) {
+      const sorted = [...active.records].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const lastWithTags = sorted.find(r => Array.isArray(r.tags) && r.tags.length > 0);
+      if (lastWithTags) {
+        this.lastUsedTags = lastWithTags.tags.map(t => String(t).trim().toLowerCase());
+      }
     }
 
     // Resize observer to re-render tag bar when left pane width changes
@@ -189,6 +203,23 @@ class App {
 
     this.initTagAutocomplete();
     this.renderAll();
+  }
+
+  getLastUsedTags() {
+    if (Array.isArray(this.lastUsedTags)) {
+      return [...this.lastUsedTags];
+    }
+
+    const active = this.getActiveSet();
+    if (active && Array.isArray(active.records) && active.records.length > 0) {
+      const sorted = [...active.records].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const lastWithTags = sorted.find(r => Array.isArray(r.tags) && r.tags.length > 0);
+      if (lastWithTags) {
+        return lastWithTags.tags.map(t => String(t).trim().toLowerCase());
+      }
+    }
+
+    return [];
   }
 
   getActiveSet() {
@@ -861,7 +892,7 @@ class App {
   openQuickAddModal() {
     this.recordInputTitle.value = '';
     this.recordInputDesc.value = '';
-    this.modalTags = [];
+    this.modalTags = this.getLastUsedTags();
     this.renderModalTags();
 
     this.modalImage = {
@@ -950,12 +981,13 @@ class App {
 
     const maxSort = active.records.reduce((max, r) => Math.max(max, r.sortOrder ?? 0), -1);
     const shortId = await window.api.generateShortId(now);
+    const normalizedTags = (this.modalTags || []).map(t => String(t).trim().toLowerCase());
     const newRecord = {
       id: `rec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       shortId: shortId,
       title: title,
       description: this.recordInputDesc.value,
-      tags: (this.modalTags || []).map(t => String(t).trim().toLowerCase()),
+      tags: normalizedTags,
       imageFileName: imageFileName,
       createdAt: now,
       modifiedAt: now,
@@ -965,13 +997,17 @@ class App {
     active.records.push(newRecord);
     this.selectedRecordId = newRecord.id;
 
+    // Default future new entries to the tags used on this entry
+    this.lastUsedTags = [...normalizedTags];
+    this.saveSettings();
+
     active.modifiedAt = now;
     await window.api.saveSet(active);
 
     if (addAnother) {
       this.recordInputTitle.value = '';
       this.recordInputDesc.value = '';
-      this.modalTags = [];
+      this.modalTags = this.getLastUsedTags();
       this.renderModalTags();
       this.modalImage = { dataUrl: null, buffer: null, extension: 'png', removeExisting: false };
       this.renderDropzone();
@@ -1187,7 +1223,8 @@ class App {
   saveSettings() {
     window.api.saveSettings({
       lastSelectedSetId: this.activeSetId,
-      sortOption: this.sortOption
+      sortOption: this.sortOption,
+      lastUsedTags: this.lastUsedTags || []
     });
   }
 
@@ -1213,6 +1250,8 @@ class App {
             this.triggerAutoSave();
             this.renderTagFilterBar();
             this.renderRecordsList();
+            this.lastUsedTags = [...record.tags];
+            this.saveSettings();
           }
         }
       }
@@ -1237,6 +1276,8 @@ class App {
             this.triggerAutoSave();
             this.renderTagFilterBar();
             this.renderRecordsList();
+            this.lastUsedTags = [...record.tags];
+            this.saveSettings();
           }
         }
       }
@@ -1422,6 +1463,16 @@ class App {
       this.inputSearch.value = '';
       const active = this.getActiveSet();
       this.selectedRecordId = active && active.records.length > 0 ? active.records[0].id : null;
+
+      // Update lastUsedTags to active set's most recently tagged record if available
+      if (active && Array.isArray(active.records)) {
+        const sorted = [...active.records].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const lastWithTags = sorted.find(r => Array.isArray(r.tags) && r.tags.length > 0);
+        if (lastWithTags) {
+          this.lastUsedTags = lastWithTags.tags.map(t => String(t).trim().toLowerCase());
+        }
+      }
+
       this.saveSettings();
       this.renderAll();
     });

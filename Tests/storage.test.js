@@ -163,7 +163,14 @@ async function runTests() {
     ['urgent', 'work', 'personal'],
     'Loaded records must have strictly lowercase, deduplicated tags'
   );
-  console.log('✓ Automatic disk normalization of mixed-case tags verified');
+  // 10. Verify lastUsedTags persistence in settings
+  const settingsObj = storage.loadSettings();
+  assert.ok(Array.isArray(settingsObj.lastUsedTags), 'Settings should include lastUsedTags array');
+  settingsObj.lastUsedTags = ['biology', 'microscope'];
+  storage.saveSettings(settingsObj);
+  const reloadedSettings = storage.loadSettings();
+  assert.deepStrictEqual(reloadedSettings.lastUsedTags, ['biology', 'microscope'], 'lastUsedTags should persist across sessions in settings.json');
+  console.log('✓ lastUsedTags settings persistence verified');
 
   // Cleanup
   fs.rmSync(tempRoot, { recursive: true, force: true });

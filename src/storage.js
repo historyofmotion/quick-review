@@ -290,7 +290,8 @@ class StorageService {
     }
     return {
       lastSelectedSetId: null,
-      sortOption: 'entryOrder'
+      sortOption: 'entryOrder',
+      lastUsedTags: []
     };
   }
 

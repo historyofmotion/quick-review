@@ -125,3 +125,9 @@ This document tracks all project requirements, architectural decisions, design c
          - **Tag**: Displays `[Tag]` (or `[—]` for untagged).
          - **Date Created**: Displays creation date (e.g. `Sep 14`).
          - **Date Modified**: Displays modified date (e.g. `Sep 15`).
+    14. **Default Tags on New Entry Creation**:
+       - When creating a new entry (via `⌘N`, "New Record" button, or "Save & Add Next" / `⇧Enter`), the tag input now defaults to the last tags used.
+       - Persists across app launches via `settings.json` (`lastUsedTags`).
+       - Automatically initializes from the active set's most recently tagged record if settings have not yet recorded tags.
+       - Adapts when switching sets to that set's most recently tagged record.
+       - Updating tags on save or editing tags dynamically updates the default for subsequent new entries.
