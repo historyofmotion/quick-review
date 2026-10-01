@@ -73,6 +73,26 @@
           <div id="tag-filter-bar" class="tag-filter-bar hidden"></div>
         </div>
 
+        <!-- Tag Filter Flyout Modal -->
+        <div id="tag-flyout-modal" class="tag-flyout-modal hidden">
+          <div class="tag-flyout-backdrop" id="tag-flyout-backdrop"></div>
+          <div class="tag-flyout-dialog">
+            <div class="tag-flyout-header">
+              <div class="tag-flyout-header-info">
+                <span class="tag-flyout-title">Filter by Tag</span>
+                <span id="tag-flyout-count" class="tag-flyout-count-badge">0 tags</span>
+              </div>
+              <button type="button" id="btn-close-tag-flyout" class="btn-close-flyout" title="Close (Esc)">✕</button>
+            </div>
+            <div class="tag-flyout-search-row">
+              <span class="flyout-search-icon">🔍</span>
+              <input type="text" id="input-tag-flyout-search" class="tag-flyout-search-input" placeholder="Search tags..." autocomplete="off" />
+              <button type="button" id="btn-clear-tag-flyout-search" class="btn-clear hidden">✕</button>
+            </div>
+            <div id="tag-flyout-list" class="tag-flyout-list"></div>
+          </div>
+        </div>
+
         <div class="records-list-container">
           <div id="records-empty" class="empty-state hidden">
             <div class="empty-icon">📝</div>

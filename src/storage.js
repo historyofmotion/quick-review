@@ -125,7 +125,7 @@ class StorageService {
       sets.push(defaultSet);
     }
 
-    // Ensure all records have standard AA999 shortId
+    // Ensure all records have standard AA999 shortId and lowercase normalized tags
     const idPattern = /^[A-Z]{2}\d{3}$/;
     let anyUpdated = false;
 
@@ -134,6 +134,11 @@ class StorageService {
     sets.forEach(set => {
       if (Array.isArray(set.records)) {
         set.records.forEach(rec => {
+          const normalized = this.normalizeTags(rec.tags);
+          if (JSON.stringify(normalized) !== JSON.stringify(rec.tags || [])) {
+            rec.tags = normalized;
+            anyUpdated = true;
+          }
           allRecordsWithSet.push({ record: rec, set });
         });
       }
@@ -156,8 +161,30 @@ class StorageService {
     return sets.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   }
 
+  normalizeTags(tags) {
+    if (!Array.isArray(tags)) return [];
+    const seen = new Set();
+    const result = [];
+    tags.forEach(t => {
+      if (t !== undefined && t !== null) {
+        const lower = String(t).trim().toLowerCase();
+        if (lower && !seen.has(lower)) {
+          seen.add(lower);
+          result.push(lower);
+        }
+      }
+    });
+    return result;
+  }
+
   saveSet(setData) {
     try {
+      if (Array.isArray(setData.records)) {
+        setData.records.forEach(rec => {
+          rec.tags = this.normalizeTags(rec.tags);
+        });
+      }
+
       const setDir = this.getSetDirectory(setData.folderName);
       const imagesDir = this.getSetImagesDirectory(setData.folderName);
 
@@ -375,7 +402,7 @@ class StorageService {
           shortId: 'AA001',
           title: 'Welcome to Quick Review',
           description: 'Quick Review is your fast, distraction-free desktop app for creating, organizing, and reviewing sets of records.\n\n• Use ⌘N to quickly add new records\n• Paste images directly from your clipboard with ⌘V\n• Press ⌘Return or click "Full Review" to enter focus review mode\n• Navigate seamlessly using Left/Right arrow keys or J/K\n• Everything is automatically saved to ~/Documents/Quick Review/',
-          tags: ['Tutorial', 'Getting Started'],
+          tags: ['tutorial', 'getting started'],
           imageFileName: null,
           createdAt: now,
           modifiedAt: now,
@@ -386,7 +413,7 @@ class StorageService {
           shortId: 'AA002',
           title: 'Keyboard Shortcuts Guide',
           description: 'Speed up your workflow with native macOS keyboard shortcuts:\n\n• ⌘N: Add New Record\n• ⌘⇧N: Create New Review Set\n• ⌘F: Search & Filter current set\n• ⌘Return: Enter Full Review Mode\n• Left/Right Arrows or J/K: Navigate records in full review\n• Esc: Exit full review mode\n• ⌘E: Edit selected record\n• ⌘Delete: Delete selected record\n• ⌘⇧E: Export active review set',
-          tags: ['Shortcuts', 'Tips'],
+          tags: ['shortcuts', 'tips'],
           imageFileName: null,
           createdAt: now,
           modifiedAt: now,
@@ -397,7 +424,7 @@ class StorageService {
           shortId: 'AA003',
           title: 'Finder-Accessible & Auto-Saved',
           description: 'All your data is stored in human-readable JSON files and standard image files in:\n~/Documents/Quick Review/Sets/\n\nYou can inspect, copy, or back up your sets directly through Finder anytime!',
-          tags: ['Storage', 'Finder'],
+          tags: ['storage', 'finder'],
           imageFileName: null,
           createdAt: now,
           modifiedAt: now,

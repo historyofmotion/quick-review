@@ -58,6 +58,15 @@ class App {
     this.recordsEmpty = document.getElementById('records-empty');
     this.btnEmptyAdd = document.getElementById('btn-empty-add');
 
+    // Tag Flyout Modal
+    this.tagFlyoutModal = document.getElementById('tag-flyout-modal');
+    this.tagFlyoutBackdrop = document.getElementById('tag-flyout-backdrop');
+    this.tagFlyoutCount = document.getElementById('tag-flyout-count');
+    this.btnCloseTagFlyout = document.getElementById('btn-close-tag-flyout');
+    this.inputTagFlyoutSearch = document.getElementById('input-tag-flyout-search');
+    this.btnClearTagFlyoutSearch = document.getElementById('btn-clear-tag-flyout-search');
+    this.tagFlyoutList = document.getElementById('tag-flyout-list');
+
     // Direct Detail / Inline Editor Pane
     this.detailEmpty = document.getElementById('detail-empty');
     this.detailContent = document.getElementById('detail-content');
@@ -166,6 +175,19 @@ class App {
       this.selectedRecordId = active.records[0].id;
     }
 
+    // Resize observer to re-render tag bar when left pane width changes
+    if (window.ResizeObserver && this.recordsPaneContainer) {
+      let resizeTimeout = null;
+      const ro = new ResizeObserver(() => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          this.renderTagFilterBar();
+        }, 100);
+      });
+      ro.observe(this.recordsPaneContainer);
+    }
+
+    this.initTagAutocomplete();
     this.renderAll();
   }
 
@@ -193,9 +215,10 @@ class App {
 
     let records = [...active.records];
 
-    // Tag filter
+    // Tag filter (case-insensitive)
     if (this.selectedTag) {
-      records = records.filter(r => r.tags && r.tags.includes(this.selectedTag));
+      const normSelected = this.selectedTag.trim().toLowerCase();
+      records = records.filter(r => (r.tags || []).some(t => t.trim().toLowerCase() === normSelected));
     }
 
     // Search query filter (matches title, description, tags, or short ID)
@@ -254,9 +277,14 @@ class App {
     if (!active) return [];
     const tagSet = new Set();
     active.records.forEach(r => {
-      (r.tags || []).forEach(t => tagSet.add(t));
+      (r.tags || []).forEach(t => {
+        if (t !== undefined && t !== null) {
+          const lower = String(t).trim().toLowerCase();
+          if (lower) tagSet.add(lower);
+        }
+      });
     });
-    return Array.from(tagSet).sort();
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
   }
 
   // MARK: - Rendering
@@ -284,6 +312,7 @@ class App {
     });
   }
 
+  // 2-Row Tag Filter Bar with Overflow Flyout Modal
   renderTagFilterBar() {
     const tags = this.getAllTagsInActiveSet();
     if (tags.length === 0) {
@@ -295,8 +324,11 @@ class App {
     this.tagFilterBar.classList.remove('hidden');
     this.tagFilterBar.innerHTML = '';
 
+    const normSelected = this.selectedTag ? this.selectedTag.trim().toLowerCase() : null;
+
+    // 1. 'All' pill
     const allPill = document.createElement('div');
-    allPill.className = `tag-pill ${this.selectedTag === null ? 'active' : ''}`;
+    allPill.className = `tag-pill ${normSelected === null ? 'active' : ''}`;
     allPill.textContent = 'All';
     allPill.addEventListener('click', () => {
       this.selectedTag = null;
@@ -306,17 +338,171 @@ class App {
     });
     this.tagFilterBar.appendChild(allPill);
 
+    // 2. Tag pills for all tags
+    const tagPillElements = [];
     tags.forEach(tag => {
       const pill = document.createElement('div');
-      pill.className = `tag-pill ${this.selectedTag === tag ? 'active' : ''}`;
+      pill.className = `tag-pill ${normSelected === tag ? 'active' : ''}`;
+      pill.dataset.tag = tag;
       pill.textContent = tag;
       pill.addEventListener('click', () => {
-        this.selectedTag = this.selectedTag === tag ? null : tag;
+        this.selectedTag = (normSelected === tag) ? null : tag;
         this.renderTagFilterBar();
         this.renderRecordsList();
         this.renderDetailPane();
       });
       this.tagFilterBar.appendChild(pill);
+      tagPillElements.push({ tag, pill });
+    });
+
+    // 3. Layout measurement: check if pills spill past 2 rows
+    const allChildren = Array.from(this.tagFilterBar.children);
+    if (allChildren.length <= 1) return;
+
+    const row1Top = allChildren[0].offsetTop;
+    let row2Top = null;
+    for (let i = 1; i < allChildren.length; i++) {
+      if (allChildren[i].offsetTop > row1Top) {
+        row2Top = allChildren[i].offsetTop;
+        break;
+      }
+    }
+
+    // If all pills fit in 1 row, done
+    if (row2Top === null) return;
+
+    // Check if any pills spill into row 3+
+    const hasRow3 = allChildren.some(el => el.offsetTop > row2Top);
+    if (!hasRow3) return; // All pills fit neatly in 2 rows
+
+    // Add "+N more ▾" pill to row 2 and hide overflowing pills
+    const moreBtn = document.createElement('div');
+    moreBtn.className = 'tag-pill tag-pill-more';
+    moreBtn.title = 'Show all tags';
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.openTagFlyout();
+    });
+    this.tagFilterBar.appendChild(moreBtn);
+
+    const hiddenTags = [];
+    // Hide pills that spill past row 2
+    for (let i = tagPillElements.length - 1; i >= 0; i--) {
+      const item = tagPillElements[i];
+      if (item.pill.offsetTop > row2Top) {
+        item.pill.style.display = 'none';
+        hiddenTags.unshift(item.tag);
+      }
+    }
+
+    // If moreBtn wrapped to row 3, hide pills on row 2 right-to-left until moreBtn fits on row 2
+    for (let i = tagPillElements.length - 1; i >= 0; i--) {
+      if (moreBtn.offsetTop <= row2Top) {
+        break;
+      }
+      const item = tagPillElements[i];
+      if (item.pill.style.display !== 'none') {
+        item.pill.style.display = 'none';
+        hiddenTags.unshift(item.tag);
+      }
+    }
+
+    const hiddenCount = hiddenTags.length;
+    const isSelectedHidden = normSelected && hiddenTags.includes(normSelected);
+
+    if (isSelectedHidden) {
+      moreBtn.classList.add('active');
+      moreBtn.innerHTML = `+${hiddenCount} more <span style="font-size:9px; opacity:0.85;">(${this.escapeHtml(normSelected)})</span> ▾`;
+    } else {
+      moreBtn.textContent = `+${hiddenCount} more ▾`;
+    }
+  }
+
+  openTagFlyout() {
+    this.tagFlyoutModal.classList.remove('hidden');
+    this.inputTagFlyoutSearch.value = '';
+    this.btnClearTagFlyoutSearch.classList.add('hidden');
+    this.renderTagFlyoutList('');
+    setTimeout(() => this.inputTagFlyoutSearch.focus(), 50);
+  }
+
+  closeTagFlyout() {
+    this.tagFlyoutModal.classList.add('hidden');
+  }
+
+  renderTagFlyoutList(filterText = '') {
+    const active = this.getActiveSet();
+    if (!active) return;
+
+    const allTags = this.getAllTagsInActiveSet();
+    const query = filterText.trim().toLowerCase();
+    const normSelected = this.selectedTag ? this.selectedTag.trim().toLowerCase() : null;
+
+    const tagCounts = new Map();
+    active.records.forEach(r => {
+      (r.tags || []).forEach(t => {
+        const lower = String(t).trim().toLowerCase();
+        tagCounts.set(lower, (tagCounts.get(lower) || 0) + 1);
+      });
+    });
+
+    this.tagFlyoutCount.textContent = `${allTags.length} ${allTags.length === 1 ? 'tag' : 'tags'}`;
+    this.tagFlyoutList.innerHTML = '';
+
+    // 'All' Option
+    if (!query || 'all'.includes(query)) {
+      const allItem = document.createElement('div');
+      allItem.className = `flyout-tag-item ${normSelected === null ? 'active' : ''}`;
+      allItem.innerHTML = `
+        <div class="flyout-tag-item-left">
+          <span class="flyout-tag-icon">📋</span>
+          <span class="flyout-tag-name">All</span>
+          <span class="flyout-tag-count">(${active.records.length})</span>
+        </div>
+        ${normSelected === null ? '<span class="flyout-tag-check">✓</span>' : ''}
+      `;
+      allItem.addEventListener('click', () => {
+        this.selectedTag = null;
+        this.closeTagFlyout();
+        this.renderTagFilterBar();
+        this.renderRecordsList();
+        this.renderDetailPane();
+      });
+      this.tagFlyoutList.appendChild(allItem);
+    }
+
+    const matched = allTags.filter(t => !query || t.includes(query));
+
+    if (matched.length === 0 && query) {
+      const empty = document.createElement('div');
+      empty.className = 'flyout-empty-state';
+      empty.textContent = `No tags matching "${query}"`;
+      this.tagFlyoutList.appendChild(empty);
+      return;
+    }
+
+    matched.forEach(tag => {
+      const isSelected = normSelected === tag;
+      const count = tagCounts.get(tag) || 0;
+      const item = document.createElement('div');
+      item.className = `flyout-tag-item ${isSelected ? 'active' : ''}`;
+      item.dataset.tag = tag;
+      item.innerHTML = `
+        <div class="flyout-tag-item-left">
+          <span class="flyout-tag-icon">🏷️</span>
+          <span class="flyout-tag-name">${this.escapeHtml(tag)}</span>
+          <span class="flyout-tag-count">(${count})</span>
+        </div>
+        ${isSelected ? '<span class="flyout-tag-check">✓</span>' : ''}
+      `;
+      item.addEventListener('click', () => {
+        this.selectedTag = (normSelected === tag) ? null : tag;
+        this.closeTagFlyout();
+        this.renderTagFilterBar();
+        this.renderRecordsList();
+        this.renderDetailPane();
+      });
+      this.tagFlyoutList.appendChild(item);
     });
   }
 
@@ -324,7 +510,7 @@ class App {
     switch (this.sortOption) {
       case 'tag': {
         if (record.tags && record.tags.length > 0) {
-          return `[${record.tags[0]}]`;
+          return `[${String(record.tags[0]).trim().toLowerCase()}]`;
         }
         return '[—]';
       }
@@ -473,17 +659,20 @@ class App {
   renderDetailTags(record) {
     this.detailTagsChips.innerHTML = '';
     (record.tags || []).forEach(tag => {
+      const lowerTag = String(tag).trim().toLowerCase();
       const chip = document.createElement('span');
       chip.className = 'tag-chip';
       chip.innerHTML = `
-        <span>${this.escapeHtml(tag)}</span>
+        <span>${this.escapeHtml(lowerTag)}</span>
         <span class="tag-chip-remove" title="Remove tag">✕</span>
       `;
-      chip.querySelector('.tag-chip-remove').addEventListener('click', () => {
-        record.tags = (record.tags || []).filter(t => t !== tag);
+      chip.querySelector('.tag-chip-remove').addEventListener('click', (e) => {
+        e.stopPropagation();
+        record.tags = (record.tags || []).filter(t => t.trim().toLowerCase() !== lowerTag);
         this.renderDetailTags(record);
         this.triggerAutoSave();
         this.renderTagFilterBar();
+        this.renderRecordsList();
       });
       this.detailTagsChips.appendChild(chip);
     });
@@ -631,17 +820,20 @@ class App {
   renderFullReviewTags(record) {
     this.reviewTagsChips.innerHTML = '';
     (record.tags || []).forEach(tag => {
+      const lowerTag = String(tag).trim().toLowerCase();
       const chip = document.createElement('span');
       chip.className = 'tag-chip';
       chip.innerHTML = `
-        <span>${this.escapeHtml(tag)}</span>
+        <span>${this.escapeHtml(lowerTag)}</span>
         <span class="tag-chip-remove" title="Remove tag">✕</span>
       `;
-      chip.querySelector('.tag-chip-remove').addEventListener('click', () => {
-        record.tags = (record.tags || []).filter(t => t !== tag);
+      chip.querySelector('.tag-chip-remove').addEventListener('click', (e) => {
+        e.stopPropagation();
+        record.tags = (record.tags || []).filter(t => t.trim().toLowerCase() !== lowerTag);
         this.renderFullReviewTags(record);
         this.triggerAutoSave();
         this.renderTagFilterBar();
+        this.renderRecordsList();
       });
       this.reviewTagsChips.appendChild(chip);
     });
@@ -706,15 +898,17 @@ class App {
 
   renderModalTags() {
     this.recordTagsChips.innerHTML = '';
-    this.modalTags.forEach(tag => {
+    (this.modalTags || []).forEach(tag => {
+      const lowerTag = String(tag).trim().toLowerCase();
       const chip = document.createElement('span');
       chip.className = 'tag-chip';
       chip.innerHTML = `
-        <span>${this.escapeHtml(tag)}</span>
+        <span>${this.escapeHtml(lowerTag)}</span>
         <span class="tag-chip-remove" title="Remove tag">✕</span>
       `;
-      chip.querySelector('.tag-chip-remove').addEventListener('click', () => {
-        this.modalTags = this.modalTags.filter(t => t !== tag);
+      chip.querySelector('.tag-chip-remove').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.modalTags = (this.modalTags || []).filter(t => t.trim().toLowerCase() !== lowerTag);
         this.renderModalTags();
       });
       this.recordTagsChips.appendChild(chip);
@@ -761,7 +955,7 @@ class App {
       shortId: shortId,
       title: title,
       description: this.recordInputDesc.value,
-      tags: [...this.modalTags],
+      tags: (this.modalTags || []).map(t => String(t).trim().toLowerCase()),
       imageFileName: imageFileName,
       createdAt: now,
       modifiedAt: now,
@@ -997,6 +1191,226 @@ class App {
     });
   }
 
+  // MARK: - Tag Autocomplete
+
+  initTagAutocomplete() {
+    // 1. Detail View Tag Input
+    this.setupTagAutocomplete({
+      input: this.detailInputTag,
+      container: this.detailInputTag.closest('.tags-input-container'),
+      getExistingTags: () => {
+        const record = this.getSelectedRecord();
+        return record ? (record.tags || []) : [];
+      },
+      onAddTag: (tag) => {
+        const record = this.getSelectedRecord();
+        if (record && tag) {
+          const norm = tag.trim().toLowerCase();
+          record.tags = record.tags || [];
+          if (!record.tags.map(t => t.toLowerCase()).includes(norm)) {
+            record.tags.push(norm);
+            this.renderDetailTags(record);
+            this.triggerAutoSave();
+            this.renderTagFilterBar();
+            this.renderRecordsList();
+          }
+        }
+      }
+    });
+
+    // 2. Full Review Tag Input
+    this.setupTagAutocomplete({
+      input: this.reviewInputTag,
+      container: this.reviewInputTag.closest('.tags-input-container'),
+      getExistingTags: () => {
+        const record = this.getSelectedRecord();
+        return record ? (record.tags || []) : [];
+      },
+      onAddTag: (tag) => {
+        const record = this.getSelectedRecord();
+        if (record && tag) {
+          const norm = tag.trim().toLowerCase();
+          record.tags = record.tags || [];
+          if (!record.tags.map(t => t.toLowerCase()).includes(norm)) {
+            record.tags.push(norm);
+            this.renderFullReviewTags(record);
+            this.triggerAutoSave();
+            this.renderTagFilterBar();
+            this.renderRecordsList();
+          }
+        }
+      }
+    });
+
+    // 3. Quick Add Modal Tag Input
+    this.setupTagAutocomplete({
+      input: this.recordInputTag,
+      container: this.recordInputTag.closest('.tags-input-container'),
+      getExistingTags: () => this.modalTags || [],
+      onAddTag: (tag) => {
+        if (tag) {
+          const norm = tag.trim().toLowerCase();
+          this.modalTags = this.modalTags || [];
+          if (!this.modalTags.map(t => t.toLowerCase()).includes(norm)) {
+            this.modalTags.push(norm);
+            this.renderModalTags();
+          }
+        }
+      }
+    });
+  }
+
+  setupTagAutocomplete({ input, container, getExistingTags, onAddTag }) {
+    let dropdown = null;
+    let highlightedIndex = -1;
+
+    const removeDropdown = () => {
+      if (dropdown) {
+        dropdown.remove();
+        dropdown = null;
+        highlightedIndex = -1;
+      }
+    };
+
+    const updateHighlight = (items) => {
+      items.forEach((it, idx) => {
+        if (idx === highlightedIndex) {
+          it.classList.add('highlighted');
+          it.scrollIntoView({ block: 'nearest' });
+        } else {
+          it.classList.remove('highlighted');
+        }
+      });
+    };
+
+    const showDropdown = () => {
+      const existing = (getExistingTags() || []).map(t => String(t).trim().toLowerCase());
+      const allTags = this.getAllTagsInActiveSet();
+      const rawQuery = input.value.trim().toLowerCase().replace(/,/g, '');
+
+      // Available tags not yet on this record
+      const available = allTags.filter(t => !existing.includes(t));
+      const matching = rawQuery ? available.filter(t => t.includes(rawQuery)) : available;
+      const hasCreateOption = rawQuery && !matching.includes(rawQuery) && !existing.includes(rawQuery);
+
+      if (matching.length === 0 && !hasCreateOption) {
+        removeDropdown();
+        return;
+      }
+
+      if (!dropdown) {
+        dropdown = document.createElement('div');
+        dropdown.className = 'tags-autocomplete-dropdown';
+        container.appendChild(dropdown);
+      }
+
+      dropdown.innerHTML = '';
+      highlightedIndex = -1;
+
+      // Count occurrences per tag in active set
+      const active = this.getActiveSet();
+      const tagCounts = new Map();
+      if (active) {
+        active.records.forEach(r => {
+          (r.tags || []).forEach(t => {
+            const lower = String(t).trim().toLowerCase();
+            tagCounts.set(lower, (tagCounts.get(lower) || 0) + 1);
+          });
+        });
+      }
+
+      matching.forEach((tag) => {
+        const item = document.createElement('div');
+        item.className = 'tags-autocomplete-item';
+        const count = tagCounts.get(tag) || 0;
+        item.innerHTML = `
+          <span class="tags-autocomplete-tag-name">🏷️ ${this.escapeHtml(tag)}</span>
+          <span class="tags-autocomplete-count">${count}</span>
+        `;
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          onAddTag(tag);
+          input.value = '';
+          input.focus();
+          showDropdown();
+        });
+        dropdown.appendChild(item);
+      });
+
+      if (hasCreateOption) {
+        const createItem = document.createElement('div');
+        createItem.className = 'tags-autocomplete-item tag-create-item';
+        createItem.innerHTML = `
+          <span class="tags-autocomplete-tag-name">➕ Add "<strong>${this.escapeHtml(rawQuery)}</strong>"</span>
+        `;
+        createItem.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          onAddTag(rawQuery);
+          input.value = '';
+          input.focus();
+          showDropdown();
+        });
+        dropdown.appendChild(createItem);
+      }
+    };
+
+    input.addEventListener('focus', () => showDropdown());
+    input.addEventListener('click', () => showDropdown());
+    input.addEventListener('input', () => showDropdown());
+
+    input.addEventListener('keydown', (e) => {
+      if (!dropdown) {
+        if (e.key === 'Enter' || e.key === ',') {
+          const val = input.value.trim().toLowerCase().replace(/,/g, '');
+          if (val) {
+            e.preventDefault();
+            onAddTag(val);
+            input.value = '';
+          }
+        }
+        return;
+      }
+
+      const items = Array.from(dropdown.querySelectorAll('.tags-autocomplete-item'));
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (items.length > 0) {
+          highlightedIndex = (highlightedIndex + 1) % items.length;
+          updateHighlight(items);
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (items.length > 0) {
+          highlightedIndex = (highlightedIndex - 1 + items.length) % items.length;
+          updateHighlight(items);
+        }
+      } else if (e.key === 'Enter' || e.key === 'Tab' || e.key === ',') {
+        if (highlightedIndex >= 0 && highlightedIndex < items.length) {
+          e.preventDefault();
+          items[highlightedIndex].dispatchEvent(new MouseEvent('mousedown'));
+        } else {
+          const val = input.value.trim().toLowerCase().replace(/,/g, '');
+          if (val) {
+            e.preventDefault();
+            onAddTag(val);
+            input.value = '';
+            removeDropdown();
+          }
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        removeDropdown();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!container.contains(e.target)) {
+        removeDropdown();
+      }
+    });
+  }
+
   // MARK: - Event Binding
 
   bindEvents() {
@@ -1089,24 +1503,6 @@ class App {
       }
     });
 
-    this.detailInputTag.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ',') {
-        e.preventDefault();
-        const tag = this.detailInputTag.value.trim().replace(',', '');
-        const record = this.getSelectedRecord();
-        if (tag && record) {
-          record.tags = record.tags || [];
-          if (!record.tags.includes(tag)) {
-            record.tags.push(tag);
-            this.renderDetailTags(record);
-            this.triggerAutoSave();
-            this.renderTagFilterBar();
-          }
-          this.detailInputTag.value = '';
-        }
-      }
-    });
-
     this.btnDetailPasteImage.addEventListener('click', () => this.handlePasteImage(false));
     this.btnDetailBrowseImage.addEventListener('click', () => this.handleBrowseImage(false));
     this.btnDetailRemoveImage.addEventListener('click', () => this.handleRemoveImage(false));
@@ -1131,24 +1527,6 @@ class App {
       if (record) {
         record.description = e.target.value;
         this.triggerAutoSave();
-      }
-    });
-
-    this.reviewInputTag.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ',') {
-        e.preventDefault();
-        const tag = this.reviewInputTag.value.trim().replace(',', '');
-        const record = this.getSelectedRecord();
-        if (tag && record) {
-          record.tags = record.tags || [];
-          if (!record.tags.includes(tag)) {
-            record.tags.push(tag);
-            this.renderFullReviewTags(record);
-            this.triggerAutoSave();
-            this.renderTagFilterBar();
-          }
-          this.reviewInputTag.value = '';
-        }
       }
     });
 
@@ -1226,21 +1604,43 @@ class App {
       this.renderRecordsList();
     });
 
+    // Tag Flyout Modal Events
+    this.btnCloseTagFlyout.addEventListener('click', () => this.closeTagFlyout());
+    this.tagFlyoutBackdrop.addEventListener('click', () => this.closeTagFlyout());
+
+    this.inputTagFlyoutSearch.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (val) {
+        this.btnClearTagFlyoutSearch.classList.remove('hidden');
+      } else {
+        this.btnClearTagFlyoutSearch.classList.add('hidden');
+      }
+      this.renderTagFlyoutList(val);
+    });
+
+    this.btnClearTagFlyoutSearch.addEventListener('click', () => {
+      this.inputTagFlyoutSearch.value = '';
+      this.btnClearTagFlyoutSearch.classList.add('hidden');
+      this.renderTagFlyoutList('');
+      this.inputTagFlyoutSearch.focus();
+    });
+
+    this.inputTagFlyoutSearch.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.closeTagFlyout();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const firstItem = this.tagFlyoutList.querySelector('.flyout-tag-item');
+        if (firstItem) {
+          firstItem.click();
+        }
+      }
+    });
+
     // Quick Add Modal Events
     this.btnCloseRecordModal.addEventListener('click', () => this.closeRecordModal());
     this.btnCancelRecord.addEventListener('click', () => this.closeRecordModal());
-
-    this.recordInputTag.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ',') {
-        e.preventDefault();
-        const tag = this.recordInputTag.value.trim().replace(',', '');
-        if (tag && !this.modalTags.includes(tag)) {
-          this.modalTags.push(tag);
-          this.renderModalTags();
-        }
-        this.recordInputTag.value = '';
-      }
-    });
 
     this.formRecord.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -1347,6 +1747,15 @@ class App {
       if (e.key === 'Escape' || e.key === ' ' || e.key.toLowerCase() === 'z') {
         e.preventDefault();
         this.closeImageZoom();
+        return;
+      }
+    }
+
+    // Tag Flyout Modal: Esc to close
+    if (this.tagFlyoutModal && !this.tagFlyoutModal.classList.contains('hidden')) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.closeTagFlyout();
         return;
       }
     }
